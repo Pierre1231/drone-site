@@ -87,12 +87,28 @@ body {
     margin-bottom: 5px;
     background: #2a2a30;
     border-radius: 6px;
+    border-left: 3px solid transparent;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, border-color 0.2s;
 }
 
 .part-item:hover {
     background: #35353c;
+}
+
+.part-item.active {
+    background: rgba(68, 136, 255, 0.14);
+    border-left-color: #4488ff;
+}
+
+.part-item.active .part-name {
+    color: #7fb0ff;
+    font-weight: 600;
+}
+
+.part-item.active .part-count {
+    background: #4488ff;
+    color: #fff;
 }
 
 .part-name {

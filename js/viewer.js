@@ -153,6 +153,8 @@ loader.setDRACOLoader(dracoLoader);
 
 let droneParts = [];
 let selectedPart = null;
+let selectedCategory = null;   // 侧边栏当前激活的分类
+const navItems = {};           // 分类 -> 侧边栏元素
 let explodeProgress = 0;
 let explodeTarget = 0;
 let isExploded = false;
@@ -214,6 +216,7 @@ loader.load('assets/drone.glb', (gltf) => {
         item.innerHTML = `<span class="part-name">${cat}</span><span class="part-count">×${count}</span>`;
         item.onclick = () => selectCategory(cat);
         partList.appendChild(item);
+        navItems[cat] = item;
     });
 
     document.getElementById('loading').classList.add('hidden');
@@ -248,13 +251,27 @@ function dimOthers(selected) {
     });
 }
 
+// 侧边栏激活态同步
+function setActiveNav(cat) {
+    Object.entries(navItems).forEach(([c, el]) => el.classList.toggle('active', c === cat));
+}
+
 function selectCategory(category) {
     markInteract();
+    // 再点一次当前分类 = 取消选中
+    if (selectedCategory === category) {
+        clearSelection();
+        document.getElementById('info-panel').classList.add('hidden');
+        return;
+    }
+    selectedCategory = category;
     const parts = droneParts.filter(p => p.userData.category === category);
     if (parts.length === 0) return;
 
-    // 高亮 + 其余 dim
+    // 高亮 + 其余 dim（clearSelection 会清空激活态，之后重新置回）
     clearSelection();
+    selectedCategory = category;
+    setActiveNav(category);
     parts.forEach(p => {
         p.material = p.material === p.userData.originalMat ? p.material.clone() : p.material;
         p.material.emissive = new THREE.Color(0x4488ff);
@@ -290,6 +307,10 @@ function selectPart(mesh) {
     selectedPart = [mesh];
     dimOthers([mesh]);
 
+    // 侧边栏同步高亮该零件所属分类
+    selectedCategory = mesh.userData.category;
+    setActiveNav(selectedCategory);
+
     // 焦点转移到该零件：保持当前视角和距离，把轨道中心平滑移到零件上，
     // 之后的缩放、旋转都绕这个零件进行
     const center = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
@@ -304,6 +325,8 @@ function selectPart(mesh) {
 function clearSelection() {
     droneParts.forEach(p => { p.material = p.userData.originalMat; });
     selectedPart = null;
+    selectedCategory = null;
+    setActiveNav(null);
 }
 
 function showInfo(category, count, name) {
@@ -338,7 +361,7 @@ document.getElementById('btn-explode').onclick = () => {
     markInteract();
     isExploded = !isExploded;
     explodeTarget = isExploded ? 1 : 0;
-    document.getElementById('btn-explode').textContent = isExploded ? '🔧 组装视图' : '💥 爆炸视图';
+    document.getElementById('btn-explode').textContent = isExploded ? '组装视图' : '爆炸视图';
 };
 
 // 全屏切换
