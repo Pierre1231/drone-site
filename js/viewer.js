@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const CATEGORY_MAP = {
   "电机": [
@@ -84,7 +85,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a1e);
 
 const camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.01, 100);
-camera.position.set(0.4, 0.35, 0.4);
+camera.position.set(1.1, 0.9, 1.1);   // 入场机位：模型加载完成后平滑推入
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
@@ -92,26 +93,45 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMapping = THREE.NeutralToneMapping;   // Khronos PBR-Neutral：准确保留材质本色
+renderer.toneMappingExposure = 1.1;
+
+// 产品级环境光照：程序化摄影棚 IBL，金属/漆面/透明件获得真实反射
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.target.set(0, 0.09, 0);
+// 轨道约束：防止缩飞出场景、钻到地面以下
+controls.minDistance = 0.05;
+controls.maxDistance = 1.2;
+controls.maxPolarAngle = Math.PI * 0.55;
+controls.autoRotateSpeed = 1.0;
 
-// ---------------------------------------------------------------- 灯光
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+// 空闲自动旋转：用户一交互即停，15 秒无操作恢复
+let lastInteract = -1;
+function markInteract() {
+    lastInteract = performance.now();
+    const hint = document.getElementById('hint');
+    if (hint) hint.classList.add('fade');
+}
+canvas.addEventListener('pointerdown', markInteract);
+canvas.addEventListener('wheel', markInteract, { passive: true });
+
+// ---------------------------------------------------------------- 灯光（IBL 为主，灯光只补方向感）
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(1, 1.5, 0.8);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 scene.add(dirLight);
 
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
 fillLight.position.set(-1, 0.5, -0.5);
 scene.add(fillLight);
 
@@ -198,21 +218,50 @@ loader.load('assets/drone.glb', (gltf) => {
 
     document.getElementById('loading').classList.add('hidden');
     console.log(`Loaded ${droneParts.length} parts`);
+
+    // 入场动画：从远机位平滑推入；几秒后开始空闲自转
+    flyTo(new THREE.Vector3(0.4, 0.35, 0.4), new THREE.Vector3(0, 0.09, 0), 1.8);
+    lastInteract = performance.now() - 12000;
+},
+// 下载进度条
+(xhr) => {
+    if (xhr.total > 0) {
+        const pct = Math.round(xhr.loaded / xhr.total * 100);
+        document.getElementById('progress-bar').style.width = pct + '%';
+        document.getElementById('loading-text').textContent = `加载 3D 模型中… ${pct}%`;
+    }
 });
 
 // ---------------------------------------------------------------- 交互
+// 聚焦 dim：未选中的零件变半透明，注意力集中在选中件上
+function dimOthers(selected) {
+    droneParts.forEach(p => {
+        if (selected.includes(p)) return;
+        if (!p.userData.dimMat) {
+            const m = p.userData.originalMat.clone();
+            m.transparent = true;
+            m.opacity = 0.15;
+            m.depthWrite = false;
+            p.userData.dimMat = m;
+        }
+        p.material = p.userData.dimMat;
+    });
+}
+
 function selectCategory(category) {
+    markInteract();
     const parts = droneParts.filter(p => p.userData.category === category);
     if (parts.length === 0) return;
 
-    // 高亮
+    // 高亮 + 其余 dim
     clearSelection();
     parts.forEach(p => {
-        p.material = p.material.clone();
+        p.material = p.material === p.userData.originalMat ? p.material.clone() : p.material;
         p.material.emissive = new THREE.Color(0x4488ff);
         p.material.emissiveIntensity = 0.3;
     });
     selectedPart = parts;
+    dimOthers(parts);
 
     // 计算包围盒
     const box = new THREE.Box3();
@@ -233,11 +282,13 @@ function selectCategory(category) {
 }
 
 function selectPart(mesh) {
+    markInteract();
     clearSelection();
     mesh.material = mesh.material.clone();
     mesh.material.emissive = new THREE.Color(0x4488ff);
     mesh.material.emissiveIntensity = 0.3;
     selectedPart = [mesh];
+    dimOthers([mesh]);
 
     // 焦点转移到该零件：保持当前视角和距离，把轨道中心平滑移到零件上，
     // 之后的缩放、旋转都绕这个零件进行
@@ -251,12 +302,8 @@ function selectPart(mesh) {
 }
 
 function clearSelection() {
-    if (selectedPart) {
-        selectedPart.forEach(p => {
-            p.material = p.userData.originalMat;
-        });
-        selectedPart = null;
-    }
+    droneParts.forEach(p => { p.material = p.userData.originalMat; });
+    selectedPart = null;
 }
 
 function showInfo(category, count, name) {
@@ -288,13 +335,21 @@ canvas.addEventListener('click', (event) => {
 
 // 爆炸切换
 document.getElementById('btn-explode').onclick = () => {
+    markInteract();
     isExploded = !isExploded;
     explodeTarget = isExploded ? 1 : 0;
     document.getElementById('btn-explode').textContent = isExploded ? '🔧 组装视图' : '💥 爆炸视图';
 };
 
+// 全屏切换
+document.getElementById('btn-fullscreen').onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+};
+
 // 重置视角（平滑飞回）
 document.getElementById('btn-reset').onclick = () => {
+    markInteract();
     flyTo(new THREE.Vector3(0.4, 0.35, 0.4), new THREE.Vector3(0, 0.09, 0), 1.1);
     clearSelection();
     document.getElementById('info-panel').classList.add('hidden');
@@ -323,6 +378,10 @@ function animate() {
         controls.target.lerpVectors(camAnim.fromTarget, camAnim.toTarget, e);
         if (k >= 1) camAnim = null;
     }
+
+    // 空闲 15 秒且不在飞行动画中时缓慢自转
+    controls.autoRotate = !camAnim && lastInteract >= 0 &&
+        (performance.now() - lastInteract > 15000);
 
     controls.update();
     renderer.render(scene, camera);
