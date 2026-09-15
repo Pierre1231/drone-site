@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRJ-LJJ 无人机 3D 交互展示</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <div class="header">
+                <h1>WRJ-LJJ 无人机</h1>
+                <p>231 个零件 · 5 寸防护圈四轴</p>
+            </div>
+            <div class="controls">
+                <button id="btn-explode" class="btn">💥 爆炸视图</button>
+                <button id="btn-reset" class="btn btn-secondary">🔄 重置视角</button>
+            </div>
+            <div id="part-list"></div>
+        </div>
+        <div id="viewport">
+            <canvas id="canvas"></canvas>
+            <div id="info-panel" class="hidden">
+                <div class="info-title" id="info-name">零件名称</div>
+                <div class="info-body">
+                    <div class="info-row"><span>类别:</span><span id="info-category">-</span></div>
+                    <div class="info-row"><span>数量:</span><span id="info-count">-</span></div>
+                </div>
+            </div>
+            <div id="loading">
+                <div class="spinner"></div>
+                <p>加载 3D 模型中...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="js/viewer.js"></script>
+</body>
+</html>
