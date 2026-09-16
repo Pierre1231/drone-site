@@ -38,9 +38,9 @@ export class Interactive {
         // 空间直觉一致；拉远到最大摄距后继续上滚则放行给页面滚回叙事区（吸附顺到 STAGE 05）。
         // 必须挂在 window 捕获阶段——OrbitControls 的 wheel 监听先注册在 canvas 上，
         // 同在 canvas 冒泡阶段抢不过它。拦截后重派发一个反转 deltaY 的合成事件给
-        // OrbitControls（isTrusted=false 直接放行），保留其阻尼手感。
+        // OrbitControls（用自定义标记防递归），保留其阻尼手感。
         window.addEventListener('wheel', (e) => {
-            if (!ctx.controls.enabled || e.target !== ctx.canvas || !e.isTrusted) return;
+            if (!ctx.controls.enabled || e.target !== ctx.canvas || e.__zoomRouted) return;
             if (e.ctrlKey || e.deltaY === 0) return;   // 触控板捏合缩放保持原生方向
             if (performance.now() - this.enteredAt < 400) { // 进交互瞬间的滚动惯性不推近镜头
                 e.stopImmediatePropagation();
@@ -56,10 +56,12 @@ export class Interactive {
             }
             e.stopImmediatePropagation();
             e.preventDefault();
-            ctx.canvas.dispatchEvent(new WheelEvent('wheel', {
+            const routed = new WheelEvent('wheel', {
                 deltaY: -e.deltaY, clientX: e.clientX, clientY: e.clientY,
                 bubbles: true, cancelable: true,
-            }));
+            });
+            routed.__zoomRouted = true;
+            ctx.canvas.dispatchEvent(routed);
         }, { capture: true, passive: false });
         ctx.canvas.addEventListener('click', (e) => this.onClick(e));
 
