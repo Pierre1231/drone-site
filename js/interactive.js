@@ -59,8 +59,13 @@ export class Interactive {
 
     onModelLoaded() {
         // 按类别分组统计，生成侧边栏导航
+        // 计数按顶层零件节点去重（多材质零件会拆成多个子 mesh）
         const groups = {};
+        const seen = new Set();
         this.ctx.parts.forEach(p => {
+            const key = p.userData.partNode || p;
+            if (seen.has(key)) return;
+            seen.add(key);
             const cat = p.userData.category;
             groups[cat] = (groups[cat] || 0) + 1;
         });
@@ -151,7 +156,7 @@ export class Interactive {
         dir.normalize();
         this.flyTo(center.clone().add(dir.multiplyScalar(dist)), center);
 
-        this.showInfo(category, parts.length, parts[0].userData.partName);
+        this.showInfo(category, new Set(parts.map(p => p.userData.partNode || p)).size, parts[0].userData.partName);
     }
 
     selectPart(mesh) {
@@ -173,7 +178,7 @@ export class Interactive {
         this.flyTo(center.clone().add(offset), center, 0.6);
 
         const category = mesh.userData.category;
-        const count = this.ctx.parts.filter(p => p.userData.category === category).length;
+        const count = new Set(this.ctx.parts.filter(p => p.userData.category === category).map(p => p.userData.partNode || p)).size;
         this.showInfo(category, count, mesh.userData.partName);
     }
 

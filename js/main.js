@@ -7,9 +7,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { classify, STAGES, stageIndexOf } from './data.js';
-import { Narrative } from './narrative.js';
-import { Interactive } from './interactive.js';
+import { classify, STAGES, stageIndexOf } from './data.js?v=20260916';
+import { Narrative } from './narrative.js?v=20260916';
+import { Interactive } from './interactive.js?v=20260916';
 
 const bootStart = performance.now();
 
@@ -148,15 +148,20 @@ loader.load('assets/drone.glb', (gltf) => {
     const model = gltf.scene;
 
     model.traverse((child) => {
-        if (child.isMesh && child.name.startsWith('WRJ-')) {
-            const partName = child.userData.part_name || child.name.replace('WRJ-', '').replace(/\.\d+$/, '');
+        // 多材质零件在 glb 里是一个 Group(WRJ-名, 带 extras) + 多个子 mesh，
+        // 子 mesh 名不带 WRJ- 前缀，所以沿父链找到 WRJ- 节点来归组。
+        let partNode = child;
+        while (partNode && !(partNode.name || '').startsWith('WRJ-')) partNode = partNode.parent;
+        if (child.isMesh && partNode) {
+            const partName = partNode.userData.part_name || partNode.name.replace('WRJ-', '').replace(/\.\d+$/, '');
             const category = classify(partName);
 
             child.userData.category = category;
             child.userData.partName = partName;
+            child.userData.partNode = partNode;
             child.userData.originalPos = child.position.clone();
-            child.userData.explodeDir = new THREE.Vector3().fromArray(child.userData.explode_dir || [0, 0, 1]);
-            child.userData.explodeDist = child.userData.explode_dist || 0.1;
+            child.userData.explodeDir = new THREE.Vector3().fromArray(partNode.userData.explode_dir || [0, 0, 1]);
+            child.userData.explodeDist = partNode.userData.explode_dist || 0.1;
             child.userData.assemble = 0;                       // 0 = 完全散件，1 = 归位
             child.userData.stage = stageIndexOf(category);
             child.castShadow = true;
