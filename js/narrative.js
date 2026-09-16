@@ -219,6 +219,8 @@ export class Narrative {
     }
 
     // ── 各阶段零件归位进度：窗口内 scrub + 组内级联 stagger ──
+    // 同时算出每个零件的 presence：hero 里全体悬浮可见，离开 hero 后未到
+    // 装配顺序的零件淡出，临近自己阶段的装配窗口前再淡入，归位后常驻
     updateAssembly(sp) {
         const { ctx } = this;
         if (!ctx.parts.length) return;
@@ -226,15 +228,19 @@ export class Narrative {
         const probe = sp + vh * 0.5;
         const staggerSpan = 0.45;
         let count = 0;
+        const heroF = clamp01(1 - (probe - this.metrics.hero.center) / vh);
 
         this.metrics.stages.forEach((s, i) => {
-            const raw = clamp01((probe - (s.center - vh * 0.6)) / (vh * 0.85));
+            const ws = s.center - vh * 0.6;
+            const raw = clamp01((probe - ws) / (vh * 0.85));
+            const approach = clamp01((probe - (ws - vh * 0.35)) / (vh * 0.35));
             const parts = ctx.stageParts[i];
             const n = parts.length;
             for (let j = 0; j < n; j++) {
                 const stagger = n > 1 ? (j / n) * staggerSpan : 0;
                 const t = smoothstep(clamp01(raw * (1 + staggerSpan) - stagger));
                 parts[j].userData.assemble = t;
+                parts[j].userData.presence = Math.max(heroF, approach, t);
                 count += t;
             }
         });

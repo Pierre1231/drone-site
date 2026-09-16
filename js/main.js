@@ -163,10 +163,15 @@ loader.load('assets/drone.glb', (gltf) => {
             child.userData.explodeDir = new THREE.Vector3().fromArray(partNode.userData.explode_dir || [0, 0, 1]);
             child.userData.explodeDist = partNode.userData.explode_dist || 0.1;
             child.userData.assemble = 0;                       // 0 = 完全散件，1 = 归位
+            child.userData.presence = 1;                       // 叙事淡入淡出系数（1 = 完全可见）
             child.userData.stage = stageIndexOf(category);
             child.castShadow = true;
             child.receiveShadow = true;
-            child.userData.originalMat = child.material;
+            // 材质逐零件克隆：叙事推进时按 presence 独立淡出未到装配顺序的零件
+            child.userData.originalMat = child.material.clone();
+            child.userData.originalMat.transparent = true;
+            child.userData.baseOpacity = child.material.opacity;
+            child.material = child.userData.originalMat;
 
             ctx.parts.push(child);
             ctx.stageParts[child.userData.stage].push(child);
@@ -203,11 +208,18 @@ loader.load('assets/drone.glb', (gltf) => {
 });
 
 // 装配进度与手动爆炸的统一偏移：offset = dir × dist × 1.5 × (1 − 装配度 + 手动爆炸)
+// 同时应用叙事淡入淡出：presence < 1 的零件降不透明度，归零后直接隐藏（也不投影）
 function applyPartOffsets() {
     const uiE = ctx.ui.explodeProgress;
     for (const p of ctx.parts) {
         const e = Math.min(uiE + (1 - p.userData.assemble), 1) * 1.5;
         p.position.copy(p.userData.originalPos).addScaledVector(p.userData.explodeDir, p.userData.explodeDist * e);
+        const a = p.userData.presence;
+        p.visible = a > 0.01;
+        if (!p.visible) continue;
+        // 点选虚化（dimMat）时不覆盖其不透明度
+        if (p.material !== p.userData.dimMat) p.material.opacity = p.userData.baseOpacity * a;
+        p.castShadow = a > 0.6;
     }
 }
 
