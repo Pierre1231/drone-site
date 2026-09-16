@@ -27,6 +27,15 @@ export class Narrative {
             this.par.tx = (e.clientX / window.innerWidth) * 2 - 1;
             this.par.ty = (e.clientY / window.innerHeight) * 2 - 1;
         }, { passive: true });
+
+        // ── 停顿吸附：手势结束后若停在两页之间，按净滚动方向顺到前一页或后一页 ──
+        this.snap = { points: [], timer: 0, from: null, lastY: window.scrollY, animating: false, target: 0 };
+        window.addEventListener('scroll', () => this.onSnapScroll(), { passive: true });
+        // 用户滚轮/触摸会原生中断平滑滚动动画，这里同步清掉吸附状态
+        const cancelSnap = () => { this.snap.animating = false; this.snap.from = null; };
+        window.addEventListener('wheel', cancelSnap, { passive: true });
+        window.addEventListener('touchstart', cancelSnap, { passive: true });
+
         this.measure();
     }
 
@@ -38,10 +47,9 @@ export class Narrative {
             el.className = 'tick';
             el.textContent = lb;
             el.onclick = () => {
-                const m = this.metrics;
-                if (!m) return;
-                const y = i === 0 ? 0 : m.stages[i - 1].center - window.innerHeight * 0.5;
-                window.scrollTo({ top: y, behavior: 'smooth' });
+                const y = this.snap?.points?.[i];
+                if (y === undefined) return;
+                this.goToPage(y);
             };
             this.rail.appendChild(el);
             return el;
@@ -56,6 +64,51 @@ export class Narrative {
         document.querySelectorAll('.stage-card, .complete-banner').forEach(el => io.observe(el));
     }
 
+    // ── 停顿吸附：scroll 事件去抖，手势结束 220ms 后判定 ──
+    onSnapScroll() {
+        const s = this.snap;
+        const y = window.scrollY;
+        if (s.animating) {
+            // 吸附动画自身的 scroll 事件：到位即结束，不触发二次判定（防止连锁翻页）
+            if (Math.abs(y - s.target) < 3) s.animating = false;
+            s.lastY = y;
+            return;
+        }
+        if (s.timer === 0) s.from = s.lastY;    // 新手势：起点 = 上一个手势的停靠位置
+        s.lastY = y;
+        clearTimeout(s.timer);
+        s.timer = setTimeout(() => this.snapToPage(), 220);
+    }
+
+    goToPage(y) {
+        this.snap.animating = true;
+        this.snap.target = y;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+
+    snapToPage() {
+        const s = this.snap;
+        s.timer = 0;
+        const y = window.scrollY;
+        const dy = y - (s.from ?? y);
+        s.from = null;
+        if (Math.abs(dy) < 6) return;                   // 没有净移动（橡皮筋回弹等）
+        // 已停在底部交互页时不干预（往上滚出交互区则照常吸附回上一页）
+        if (this.mode === 'interactive' && y >= this.metrics.interactive.top - 4) return;
+        const pts = s.points;
+        if (!pts.length) return;
+        let target;
+        if (dy > 0) {
+            target = pts.find(p => p > y + 4);
+        } else {
+            for (let i = pts.length - 1; i >= 0; i--) {
+                if (pts[i] < y - 4) { target = pts[i]; break; }
+            }
+        }
+        if (target === undefined) return;
+        this.goToPage(target);
+    }
+
     onResize() {
         this.measure();
         if (this.ctx.parts.length) this.computePoses();
@@ -65,8 +118,9 @@ export class Narrative {
         const heroEl = document.getElementById('sec-hero');
         const stageEls = [...document.querySelectorAll('.panel.stage')];
         const interEl = document.getElementById('sec-interactive');
+        const vh = window.innerHeight;
         this.metrics = {
-            vh: window.innerHeight,
+            vh,
             hero: { center: heroEl.offsetTop + heroEl.offsetHeight / 2 },
             stages: stageEls.map(el => ({
                 top: el.offsetTop,
@@ -75,6 +129,15 @@ export class Narrative {
             })),
             interactive: { top: interEl.offsetTop, center: interEl.offsetTop + interEl.offsetHeight / 2 },
         };
+        // 吸附点：hero + 各 stage + 底部交互页。
+        // stage 页定位在 center - 0.25vh：此时该组零件恰好 100% 归位，相机也基本停在关键帧上
+        if (this.snap) {
+            this.snap.points = [
+                0,
+                ...stageEls.map(el => el.offsetTop + el.offsetHeight / 2 - vh * 0.25),
+                interEl.offsetTop,
+            ];
+        }
     }
 
     onModelLoaded() {
