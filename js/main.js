@@ -185,7 +185,8 @@ loader.load('assets/drone.glb', (gltf) => {
     console.log(`Loaded ${ctx.parts.length} parts`);
 },
 (xhr) => {
-    if (xhr.total > 0) bootProgress(Math.round(xhr.loaded / xhr.total * 100));
+    // 注意：压缩传输时 loaded 是按解压后字节计数，可能超过 total，需钳制
+    if (xhr.total > 0) bootProgress(Math.min(Math.round(xhr.loaded / xhr.total * 100), 100));
 },
 (err) => {
     console.error('模型加载失败', err);
