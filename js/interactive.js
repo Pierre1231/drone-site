@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 
-const ACCENT = 0xff5a1f;
-
 // ---------------------------------------------------------------- 交互模式
 // 职责：零件点选 / 侧边栏分类导航 / 手动爆炸 / 相机飞行 / 空闲自转
 // 仅在 body.interactive-mode（OrbitControls 启用）时接管相机
@@ -102,13 +100,14 @@ export class Interactive {
     }
 
     // ---------------------------------------------------------------- 选中逻辑
+    // 聚焦虚化：选中件保持原色，未选中的零件整体变淡退到背景
     dimOthers(selected) {
         this.ctx.parts.forEach(p => {
             if (selected.includes(p)) return;
             if (!p.userData.dimMat) {
                 const m = p.userData.originalMat.clone();
                 m.transparent = true;
-                m.opacity = 0.12;
+                m.opacity = 0.16;
                 m.depthWrite = false;
                 p.userData.dimMat = m;
             }
@@ -135,11 +134,6 @@ export class Interactive {
         this.clearSelection();
         this.selectedCategory = category;
         this.setActiveNav(category);
-        parts.forEach(p => {
-            p.material = p.material === p.userData.originalMat ? p.material.clone() : p.material;
-            p.material.emissive = new THREE.Color(ACCENT);
-            p.material.emissiveIntensity = 0.35;
-        });
         this.selectedPart = parts;
         this.dimOthers(parts);
 
@@ -162,9 +156,6 @@ export class Interactive {
     selectPart(mesh) {
         this.markInteract();
         this.clearSelection();
-        mesh.material = mesh.material.clone();
-        mesh.material.emissive = new THREE.Color(ACCENT);
-        mesh.material.emissiveIntensity = 0.35;
         this.selectedPart = [mesh];
         this.dimOthers([mesh]);
 
