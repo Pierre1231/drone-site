@@ -2,50 +2,169 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WRJ-LJJ 无人机 3D 交互展示</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>WRJ-LJJ · 装配序列</title>
+    <meta name="description" content="WRJ-LJJ 无人机：229 个零件，一台机器。滚动浏览完整装配序列，进入交互式 3D 结构查看器。">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="container">
-        <div id="sidebar">
-            <div class="header">
-                <h1>WRJ-LJJ 无人机</h1>
-                <p>231 个零件 · 5 寸防护圈四轴</p>
+    <!-- ═══════════════ 固定 3D 画布层 ═══════════════ -->
+    <div id="stage" aria-hidden="true">
+        <canvas id="canvas"></canvas>
+        <div id="vignette"></div>
+
+        <!-- HUD 框架：四角括号 + 状态读数 -->
+        <div id="hud">
+            <span class="hud-corner tl"></span>
+            <span class="hud-corner tr"></span>
+            <span class="hud-corner bl"></span>
+            <span class="hud-corner br"></span>
+            <div class="hud-readout" id="hud-left">
+                <span class="hud-label">WRJ-LJJ</span>
+                <span class="hud-value" id="hud-mode">ASSEMBLY&nbsp;MODE</span>
             </div>
-            <div class="controls">
-                <button id="btn-explode" class="btn">爆炸视图</button>
-                <button id="btn-reset" class="btn btn-secondary">重置视角</button>
+            <div class="hud-readout right" id="hud-right">
+                <span class="hud-label">ASSEMBLED</span>
+                <span class="hud-value accent" id="hud-counter">000 / 229</span>
             </div>
-            <div id="part-list"></div>
+            <div id="rail"></div>
         </div>
-        <div id="viewport">
-            <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- ═══════════════ 开机加载屏 ═══════════════ -->
+    <div id="loading">
+        <div class="boot-box">
+            <div class="boot-head">
+                <span class="boot-title">WRJ-LJJ&nbsp;//&nbsp;ASSEMBLY&nbsp;SEQUENCE</span>
+                <span class="boot-cursor"></span>
+            </div>
+            <div class="boot-lines" id="boot-lines">
+                <div class="boot-line">&gt; MOUNTING AIRFRAME DATA ......... <span class="ok">OK</span></div>
+                <div class="boot-line">&gt; DECODING DRACO STREAM ........ <span id="boot-pct">0%</span></div>
+            </div>
+            <div class="boot-bar"><span id="boot-blocks"></span></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ 滚动叙事层 ═══════════════ -->
+    <main id="scroll-content">
+
+        <!-- HERO -->
+        <section class="panel hero" id="sec-hero">
+            <div class="hero-inner">
+                <p class="eyebrow reveal">WRJ-LJJ&nbsp;·&nbsp;ASSEMBLY&nbsp;SEQUENCE&nbsp;·&nbsp;QUAD&nbsp;PLATFORM</p>
+                <h1 class="display reveal">229 个零件，<br>一台机器。</h1>
+                <p class="sub reveal">5 寸防护圈四轴 · 双目深度视觉 · 机载计算平台</p>
+            </div>
+            <div class="scroll-cue">
+                <span class="cue-text">SCROLL</span>
+                <span class="cue-line"></span>
+                <span class="cue-text">开始装配</span>
+            </div>
+        </section>
+
+        <!-- STAGE 01 机架骨架 -->
+        <section class="panel stage" data-stage="0">
+            <div class="stage-card">
+                <p class="stage-index">STAGE&nbsp;01&nbsp;<span class="dim">/&nbsp;05</span></p>
+                <h2 class="stage-title">机架骨架</h2>
+                <p class="stage-sub">AIRFRAME&nbsp;&amp;&nbsp;STRUCTURE</p>
+                <p class="stage-desc">碳纤维板与机臂构成整机承力骨架，铝柱与紧固件锁定每一层堆叠。</p>
+                <p class="stage-specs">FRAME&nbsp;×31&nbsp;&nbsp;ARM&nbsp;×32&nbsp;&nbsp;STANDOFF&nbsp;×56&nbsp;&nbsp;SCREW&nbsp;×84</p>
+            </div>
+        </section>
+
+        <!-- STAGE 02 动力系统 -->
+        <section class="panel stage" data-stage="1">
+            <div class="stage-card">
+                <p class="stage-index">STAGE&nbsp;02&nbsp;<span class="dim">/&nbsp;05</span></p>
+                <h2 class="stage-title">动力系统</h2>
+                <p class="stage-sub">PROPULSION</p>
+                <p class="stage-desc">四组电机与电调沿机臂就位，6×3 桨叶最后锁紧，推力链闭合。</p>
+                <p class="stage-specs">MOTOR&nbsp;×4&nbsp;&nbsp;ESC&nbsp;×4&nbsp;&nbsp;PDB&nbsp;×1&nbsp;&nbsp;PROP&nbsp;6×3&nbsp;×4</p>
+            </div>
+        </section>
+
+        <!-- STAGE 03 航电核心 -->
+        <section class="panel stage" data-stage="2">
+            <div class="stage-card">
+                <p class="stage-index">STAGE&nbsp;03&nbsp;<span class="dim">/&nbsp;05</span></p>
+                <h2 class="stage-title">航电核心</h2>
+                <p class="stage-sub">AVIONICS&nbsp;CORE</p>
+                <p class="stage-desc">PX4 飞控与机载计算平台叠装入舱，姿态解算与任务计算各司其职。</p>
+                <p class="stage-specs">FCU&nbsp;PX4&nbsp;&nbsp;COMPUTE&nbsp;TX2-NX&nbsp;CLASS</p>
+            </div>
+        </section>
+
+        <!-- STAGE 04 视觉感知 -->
+        <section class="panel stage" data-stage="3">
+            <div class="stage-card">
+                <p class="stage-index">STAGE&nbsp;04&nbsp;<span class="dim">/&nbsp;05</span></p>
+                <h2 class="stage-title">视觉感知</h2>
+                <p class="stage-sub">PERCEPTION</p>
+                <p class="stage-desc">RealSense D435 双目深度相机前置安装，为整机装上眼睛。</p>
+                <p class="stage-specs">STEREO&nbsp;DEPTH&nbsp;&nbsp;D435&nbsp;&nbsp;FOV&nbsp;87°×58°</p>
+            </div>
+        </section>
+
+        <!-- STAGE 05 能源系统 -->
+        <section class="panel stage" data-stage="4">
+            <div class="stage-card">
+                <p class="stage-index">STAGE&nbsp;05&nbsp;<span class="dim">/&nbsp;05</span></p>
+                <h2 class="stage-title">能源系统</h2>
+                <p class="stage-sub">POWER</p>
+                <p class="stage-desc">电池滑入电池仓，挡板锁定。装配完成，整机待飞。</p>
+                <p class="stage-specs">BATTERY&nbsp;BAY&nbsp;×5PCS&nbsp;&nbsp;QUICK-LOCK&nbsp;PLATE</p>
+            </div>
+        </section>
+
+        <!-- ═══════════════ 交互查看器 ═══════════════ -->
+        <section class="panel interactive" id="sec-interactive">
+            <div class="complete-banner">
+                <p class="stage-index">SEQUENCE&nbsp;COMPLETE</p>
+                <h2 class="stage-title">装配完成</h2>
+                <p class="stage-desc">交互模式已解锁 —— 拖拽旋转，点击任意零件查看详情。</p>
+            </div>
+
+            <aside id="sidebar">
+                <div class="header">
+                    <h1>WRJ-LJJ</h1>
+                    <p>229 PARTS · 5″ PROP-GUARD QUAD</p>
+                </div>
+                <div class="controls">
+                    <button id="btn-explode" class="btn">爆炸视图</button>
+                    <button id="btn-reset" class="btn btn-secondary">重置视角</button>
+                </div>
+                <div id="part-list"></div>
+            </aside>
+
             <div id="info-panel" class="hidden">
                 <div class="info-title" id="info-name">零件名称</div>
                 <div class="info-body">
-                    <div class="info-row"><span>类别:</span><span id="info-category">-</span></div>
-                    <div class="info-row"><span>数量:</span><span id="info-count">-</span></div>
+                    <div class="info-row"><span>类别</span><span id="info-category">-</span></div>
+                    <div class="info-row"><span>数量</span><span id="info-count">-</span></div>
                 </div>
             </div>
-            <div id="loading">
-                <div class="spinner"></div>
-                <p id="loading-text">加载 3D 模型中...</p>
-                <div id="progress-track"><div id="progress-bar"></div></div>
-            </div>
+
             <div id="hint">拖拽旋转 · 滚轮缩放 · 点击零件查看详情</div>
             <button id="btn-fullscreen" title="全屏"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
-        </div>
-    </div>
+        </section>
+
+        <footer id="footer">
+            <span>WRJ-LJJ&nbsp;©&nbsp;2026</span>
+            <span class="ascii">┌─&nbsp;ASSEMBLED&nbsp;WITH&nbsp;229&nbsp;PARTS&nbsp;─┐</span>
+            <span>DESIGNED&nbsp;FOR&nbsp;FLIGHT</span>
+        </footer>
+    </main>
 
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            "three": "./vendor/three/build/three.module.js",
+            "three/addons/": "./vendor/three/examples/jsm/"
         }
     }
     </script>
-    <script type="module" src="js/viewer.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
